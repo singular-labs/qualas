@@ -1,6 +1,5 @@
 from array import array
 from collections import defaultdict
-from itertools import izip
 
 
 class BitArray(object):
@@ -133,10 +132,8 @@ class RecyclingCsvReader(object):
 
     def get_fast_csv_record(self, line):
         split_line = line.strip('\n').split(self.delimiter)
-
         self.reusable_dict.update(
-            ((header, value if value != '' else self.empty_value) for header, value in
-             izip(self.ordered_relevant_columns, split_line))
+            ((self.indexes[i], split_line[i] if self.indexes[i] != '' else self.empty_value) for i in self.indexes)
         )
         return self.reusable_dict
 
