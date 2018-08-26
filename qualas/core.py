@@ -1,6 +1,6 @@
 from array import array
 from collections import defaultdict
-from datetime import datetime
+from itertools import izip
 
 
 class BitArray(object):
@@ -122,15 +122,21 @@ class RecyclingCsvReader(object):
         self.indexes = {i: self.full_headers_list[i] for i in xrange(len(self.full_headers_list))
                         if self.full_headers_list[i] in self.relevant_columns}
 
+        self.ordered_relevant_indexes = sorted(self.indexes.keys())
+        self.ordered_relevant_columns = [header for header in self.full_headers_list if header in self.relevant_columns]
+
     def _init_file(self):
         self.file_object.seek(0)
+        self.file_object.readline()
 
         self.reusable_dict = dict.fromkeys(self.relevant_columns, self.empty_value)
 
     def get_fast_csv_record(self, line):
         split_line = line.strip('\n').split(self.delimiter)
+
         self.reusable_dict.update(
-            ((self.indexes[i], split_line[i] if self.indexes[i] != '' else self.empty_value) for i in self.indexes)
+            ((header, value if value != '' else self.empty_value) for header, value in
+             izip(self.ordered_relevant_columns, split_line))
         )
         return self.reusable_dict
 
