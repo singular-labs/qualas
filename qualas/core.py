@@ -129,10 +129,9 @@ class RecyclingCsvReader(object):
 
     def get_fast_csv_record(self, line):
         split_line = line.strip('\n').split(self.delimiter)
-        items = [(self.indexes[i], split_line[i]) for i in xrange(len(split_line)) if i in self.indexes]
-
-        self.reusable_dict.update(((header, value) if value != '' else (header, self.empty_value)
-                                   for header, value in items))
+        self.reusable_dict.update(
+            ((self.indexes[i], split_line[i] if self.indexes[i] != '' else self.empty_value) for i in self.indexes)
+        )
         return self.reusable_dict
 
     def iterator(self):
