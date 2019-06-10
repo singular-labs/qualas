@@ -15,7 +15,6 @@ class BitArray(object):
         longs_length = (length / self.LONG_BIT_LENGTH) + 1
         longs_length += 1 if length % self.LONG_BIT_LENGTH == 0 else 0
 
-        # self.data = array('L', [0] * longs_length)
         self.data = array('L', self.INIT_STRING * longs_length)
 
     def __setitem__(self, index, value):
@@ -32,8 +31,34 @@ class BitArray(object):
             mask = ~ (1 << lower_index)
             self.data[higher_index] &= mask
 
+    def set_byte(self, byte_index, byte_value):
+        self.data[byte_index] = byte_value
+
     def __len__(self):
         return self.length
+
+
+class BitArrayStream(object):
+    def __init__(self, length):
+        self.bit_array = BitArray(length)
+
+        self.array_index = 0
+        self.byte_index = 8
+        self.byte_value = 0
+
+    def add_value(self, value):
+        self.byte_index -= 1
+        self.byte_value |= (value << self.byte_index)
+
+        if self.byte_index == 0:
+            self.bit_array.set_byte(self.array_index, self.byte_value)
+            self.array_index += 1
+            self.byte_index = 8
+
+    def finalize(self):
+        if self.byte_index != 0:
+            self.bit_array.set_byte(self.array_index, self.byte_value)
+        return self.bit_array
 
 
 class DataFrameMetric(object):
@@ -70,8 +95,10 @@ class DateFrameColumn(object):
 
         for index in self.values_indexes.values():
             bitmaps_by_index[index] = BitArray(len(self.column_data))
+
         for i, index in enumerate(self.column_data):
             bitmaps_by_index[index][i] = True
+
         for value, index in self.values_indexes.iteritems():
             self.bitmaps[value] = bitmaps_by_index[index]
 
@@ -98,16 +125,37 @@ class DataFrameLoaderFromCsv(object):
         columns = self.dimensions + self.metrics
         csv_reader = RecyclingCsvReader(file_object, columns, full_headers_list, delimiter='\t')
 
+        dimension_to_index = None
+        metrics_to_index = None
+
         for record in csv_reader:
-            for dimension in self.dimensions:
-                data_frame.columns[dimension].insert_value(record[dimension])
-            for metric in self.metrics:
-                data_frame.metrics[metric].insert_value(record[metric])
+            dimension_to_index = dimension_to_index or {
+                dimension: record.keys_to_indexes[dimension] for dimension in self.dimensions
+            }
+            metrics_to_index = metrics_to_index or {
+                metric: record.keys_to_indexes[metric] for metric in self.metrics
+            }
+
+            for dimension, index in dimension_to_index.iteritems():
+                data_frame.columns[dimension].insert_value(record.values[index])
+            for metric, index in metrics_to_index.iteritems():
+                data_frame.metrics[metric].insert_value(record.values[index])
 
         for column in data_frame.columns.values():
             column.finalize_bitmaps()
 
         return data_frame
+
+
+class ListBasedDictionary(object):
+    def __init__(self, keys):
+        self.keys = keys
+        self.keys_to_indexes = {value: index for index, value in enumerate(self.keys)}
+
+        self.values = [None] * len(self.keys)
+
+    def __getitem__(self, item):
+        return self.values[self.keys_to_indexes[item]]
 
 
 class RecyclingCsvReader(object):
@@ -118,23 +166,14 @@ class RecyclingCsvReader(object):
         self.empty_value = empty_value
         self.delimiter = delimiter
 
-        self.indexes = {i: self.full_headers_list[i] for i in xrange(len(self.full_headers_list))
-                        if self.full_headers_list[i] in self.relevant_columns}
-
-        self.ordered_relevant_indexes = sorted(self.indexes.keys())
-        self.ordered_relevant_columns = [header for header in self.full_headers_list if header in self.relevant_columns]
-
     def _init_file(self):
         self.file_object.seek(0)
         self.file_object.readline()
 
-        self.reusable_dict = dict.fromkeys(self.relevant_columns, self.empty_value)
+        self.reusable_dict = ListBasedDictionary(self.full_headers_list)
 
     def get_fast_csv_record(self, line):
-        split_line = line.strip('\n').split(self.delimiter)
-        self.reusable_dict.update(
-            ((self.indexes[i], split_line[i] if self.indexes[i] != '' else self.empty_value) for i in self.indexes)
-        )
+        self.reusable_dict.values = line.strip('\n').split(self.delimiter)
         return self.reusable_dict
 
     def iterator(self):
