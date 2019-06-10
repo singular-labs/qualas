@@ -178,7 +178,8 @@ class RecyclingCsvReader(object):
 
     def iterator(self):
         for line in self.file_object:
-            yield self.get_fast_csv_record(line)
+            self.reusable_dict.values = line.strip('\n').split(self.delimiter)
+            yield self.reusable_dict
 
     def __iter__(self):
         self._init_file()
