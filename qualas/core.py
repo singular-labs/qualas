@@ -152,7 +152,7 @@ class ListBasedDictionary(object):
         self.keys = keys
         self.keys_to_indexes = {value: index for index, value in enumerate(self.keys)}
 
-        self.values = [None] * len(self.keys)
+        self.values = None
 
     def __getitem__(self, item):
         return self.values[self.keys_to_indexes[item]]
@@ -172,13 +172,9 @@ class RecyclingCsvReader(object):
 
         self.reusable_dict = ListBasedDictionary(self.full_headers_list)
 
-    def get_fast_csv_record(self, line):
-        self.reusable_dict.values = line.strip('\n').split(self.delimiter)
-        return self.reusable_dict
-
     def iterator(self):
         for line in self.file_object:
-            self.reusable_dict.values = line.strip('\n').split(self.delimiter)
+            self.reusable_dict.values = tuple(line.strip('\n').split(self.delimiter))
             yield self.reusable_dict
 
     def __iter__(self):
