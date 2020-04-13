@@ -1,2 +1,5 @@
 .idea
-profile.py
+*.pyc
+.pytest_cache
+*.egg-info
+dist
