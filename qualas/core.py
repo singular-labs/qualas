@@ -102,8 +102,6 @@ class DateFrameColumn(object):
         for value, index in self.values_indexes.iteritems():
             self.bitmaps[value] = bitmaps_by_index[index]
 
-        print
-
 
 class DataFrame(object):
     def __init__(self):
@@ -112,7 +110,7 @@ class DataFrame(object):
 
 
 class DataFrameLoaderFromCsv(object):
-    def __init__(self, dimensions, metrics, delimiter):
+    def __init__(self, dimensions, metrics, delimiter='\t'):
         self.dimensions = dimensions
         self.metrics = metrics
         self.delimiter = delimiter
@@ -123,7 +121,7 @@ class DataFrameLoaderFromCsv(object):
         data_frame = DataFrame()
 
         columns = self.dimensions + self.metrics
-        csv_reader = RecyclingCsvReader(file_object, columns, full_headers_list, delimiter='\t')
+        csv_reader = RecyclingCsvReader(file_object, columns, full_headers_list, delimiter=self.delimiter)
 
         dimension_to_index = None
         metrics_to_index = None
